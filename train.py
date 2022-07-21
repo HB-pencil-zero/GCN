@@ -3,7 +3,8 @@ from layers import *
 from torch.nn import CrossEntropyLoss
 import torch.optim as optim
 import argparse
-
+import numpy as np 
+from utils import *
 parser=argparse.ArgumentParser()
 
 parser = argparse.ArgumentParser()
@@ -28,23 +29,55 @@ args=parser.parse_args()
 
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
+np.random.seed(args.seed)
+torch.manual_seed(args.seed)
+if args.cuda:
+    torch.cuda.manual_seed(args.seed)
 
-def train_model(model:GCN,epochs:int,traing_loader,validation_loader,optimizer:optim.SGD,criterion = CrossEntropyLoss)->None:
+# Load data
+adj, features, labels, idx_train, idx_val, idx_test = load_data()
+
+# Model and optimizer
+model = GCN(nfeat=features.shape[1],
+            nhid=args.hidden,
+            nclass=labels.max().item() + 1,
+            dropout=args.dropout)
+optimizer = optim.Adam(model.parameters(),
+                       lr=args.lr, weight_decay=args.weight_decay)
+
+if args.cuda:
+    model.cuda()
+    features = features.cuda()
+    adj = adj.cuda()
+    labels = labels.cuda()
+    idx_train = idx_train.cuda()
+    idx_val = idx_val.cuda()
+    idx_test = idx_test.cuda()
+
+
+def train(epoch:int):
+    model.train()
+    optimizer.zero_grad()
+    output=model(adj@features)
+    loss=CrossEntropyLoss(output[idx_train],labels[idx_train])
+    optimizer.step()
+    accu=accuracy(output[idx_train],labels[idx_train])
+    print("epoch {} train finished , and accuracy is {}".format(epoch+1,accu))
+
+
+def test(epoch:int):
+    model.eval()
+    with torch.no_grad():
+        output=model(adj@features)
+        loss=CrossEntropyLoss(output[idx_val],labels[idx_val])
+        accu=accuracy(output[idx_val],labels[idx_val])
+        print("epoch {} test, and accuracy is {}".format(epoch+1,accu))
+
+if __name__ == '__main__':
+    epochs=args.epochs
     for i in range(epochs):
-        accu=0
-        for data,labels in traing_loader:
-            optimizer.zero_grad()
-            pred = model(data)
-            loss = criterion(data,labels)
-            loss.backward()
-            optimizer.step()
-            accu=torch.where(torch.argmax(pred,dim=1)== labels).count()/labels.size(0)
-            print('epoch {} , loss is {} ,train accuracy is %{} '.format(i,loss,accu*100) )
-
-
-        for data,labels in traing_loader:
-            with torch.no_grad():
-                pred = model(data)
-                loss = criterion(data,labels)
-                accu=torch.where(torch.argmax(pred,dim=1)== labels).count()/labels.size(0)
-                print('epoch {} , loss is {},train accuracy is %{} '.format(i,loss,accu*100) )     
+        train(epoch=i)
+        test(epoch=i)
+        print("*" for i in range(10))
+    print("finished all epochs train")
+    
