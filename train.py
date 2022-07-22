@@ -5,6 +5,7 @@ import torch.optim as optim
 import argparse
 import numpy as np 
 from utils import *
+
 parser=argparse.ArgumentParser()
 
 parser = argparse.ArgumentParser()
@@ -49,9 +50,9 @@ optimizer = optim.Adam(model.parameters(),
 
 if args.cuda:
     model.cuda()
-    features = torch.from_numpy(features).cuda()
-    adj = torch.from_numpy(adj).cuda()
-    labels = torch.from_numpy(labels).cuda()
+    features = torch.from_numpy(np.array(features)).cuda()
+    adj = torch.from_numpy(np.array(adj)).cuda()
+    labels = torch.from_numpy(np.array(labels)).cuda()
     idx_train = idx_train.cuda()
     idx_val = idx_val.cuda()
     idx_test = idx_test.cuda()
@@ -62,10 +63,10 @@ def train(epoch:int,criterion=CrossEntropyLoss()):
     model.double()
     optimizer.zero_grad()
     output=model(features.double(),adj.double())
-    loss=criterion(output[idx_train],labels[idx_train].long().max(1)[0])
+    loss=criterion(output[idx_train],labels[idx_train].long())
     loss.backward()
     optimizer.step()
-    accu=accuracy(output[idx_train],labels[idx_train].long().max(1)[0])
+    accu=accuracy(output[idx_train],labels[idx_train].long())
     print("epoch {} train finished , and accuracy is {}".format(epoch+1,accu))
 
 
@@ -73,8 +74,8 @@ def test(epoch:int):
     model.eval()
     with torch.no_grad():
         output=model(features.double(),adj.double())
-        loss=CrossEntropyLoss()(output[idx_val],labels[idx_val].long().max(1)[0])
-        accu=accuracy(output[idx_val],labels[idx_val].long().max(1)[0])
+        loss=CrossEntropyLoss()(output[idx_val],labels[idx_val].long())
+        accu=accuracy(output[idx_val],labels[idx_val].long())
         print("epoch {} test, and accuracy is {}".format(epoch+1,accu))
 
 if __name__ == '__main__':
