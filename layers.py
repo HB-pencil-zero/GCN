@@ -5,13 +5,15 @@ from torch.nn.parameter import Parameter
 from torch import Tensor
 
 class graphConvLayer(nn.Module):
-    def __init__(self,in_features,out_features,bias:bool=True)->None:
-        self.in_features,self.out_features= zip(in_features,out_features)
+    def __init__(self,in_features:int,out_features:int,bias:bool=True)->None:
+        super(graphConvLayer,self).__init__()
+        self.in_features,self.out_features= in_features,out_features
+
         self.weight=Parameter(data=torch.FloatTensor(self.in_features,self.out_features))
         self.bias=Parameter(torch.FloatTensor(self.out_features))
         if(not bias):
             self.register_parameter("bias",None)
-        self.reset_pa
+        self.initialise()
 
     
     def initialise(self):
@@ -20,8 +22,9 @@ class graphConvLayer(nn.Module):
         if(self.bias is not None):
             self.bias.data.uniform_(-stdv,stdv)
     
-    def forward(self,x:Tensor)->Tensor:
-        result = x@self.weight 
+    def forward(self,x:Tensor,adj:Tensor)->Tensor:
+        result =torch.mm(x,self.weight)
+        result=torch.spmm(adj,result)
         if(self.bias is not None):
             result=result+self.bias
         return result 

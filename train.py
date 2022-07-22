@@ -38,39 +38,43 @@ if args.cuda:
 adj, features, labels, idx_train, idx_val, idx_test = load_data()
 
 # Model and optimizer
-model = GCN(nfeat=features.shape[1],
-            nhid=args.hidden,
-            nclass=labels.max().item() + 1,
-            dropout=args.dropout)
+model = GCN(n_feature=features.shape[1],
+            n_hidden= args.hidden,
+            n_class=labels.max().item() + 1
+            )
+
+
 optimizer = optim.Adam(model.parameters(),
                        lr=args.lr, weight_decay=args.weight_decay)
 
 if args.cuda:
     model.cuda()
-    features = features.cuda()
-    adj = adj.cuda()
-    labels = labels.cuda()
+    features = torch.from_numpy(features).cuda()
+    adj = torch.from_numpy(adj).cuda()
+    labels = torch.from_numpy(labels).cuda()
     idx_train = idx_train.cuda()
     idx_val = idx_val.cuda()
     idx_test = idx_test.cuda()
 
 
-def train(epoch:int):
+def train(epoch:int,criterion=CrossEntropyLoss()):
     model.train()
+    model.double()
     optimizer.zero_grad()
-    output=model(adj@features)
-    loss=CrossEntropyLoss(output[idx_train],labels[idx_train])
+    output=model(features.double(),adj.double())
+    loss=criterion(output[idx_train],labels[idx_train].long().max(1)[0])
+    loss.backward()
     optimizer.step()
-    accu=accuracy(output[idx_train],labels[idx_train])
+    accu=accuracy(output[idx_train],labels[idx_train].long().max(1)[0])
     print("epoch {} train finished , and accuracy is {}".format(epoch+1,accu))
 
 
 def test(epoch:int):
     model.eval()
     with torch.no_grad():
-        output=model(adj@features)
-        loss=CrossEntropyLoss(output[idx_val],labels[idx_val])
-        accu=accuracy(output[idx_val],labels[idx_val])
+        output=model(features.double(),adj.double())
+        loss=CrossEntropyLoss()(output[idx_val],labels[idx_val].long().max(1)[0])
+        accu=accuracy(output[idx_val],labels[idx_val].long().max(1)[0])
         print("epoch {} test, and accuracy is {}".format(epoch+1,accu))
 
 if __name__ == '__main__':
@@ -78,6 +82,6 @@ if __name__ == '__main__':
     for i in range(epochs):
         train(epoch=i)
         test(epoch=i)
-        print("*" for i in range(10))
+        print(''.join(list("*" for i in range(10))))
     print("finished all epochs train")
     
